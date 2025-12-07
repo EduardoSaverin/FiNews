@@ -1,7 +1,8 @@
 import os
-from celery import Celery
+from celery import Celery, signals
 from celery.schedules import crontab
 from dotenv import load_dotenv
+from app.utils.logger import logger
 
 if load_dotenv():
     print("✅ .env loaded")
@@ -30,3 +31,23 @@ app.conf.update(
         },
     },
 )
+
+@signals.after_setup_task_logger.connect
+def setup_task_logger(**kwargs):
+    """Attach our custom logger to Celery's task logger."""
+    from logging import getLogger
+    task_logger = getLogger("celery.task")
+    task_logger.handlers.clear()
+    task_logger.propagate = False
+    task_logger.handlers = logger.handlers
+    task_logger.setLevel(logger.level)
+
+@signals.after_setup_logger.connect
+def setup_celery_logger(**kwargs):
+    """Attach our custom logger to Celery main process (worker/beat)."""
+    from logging import getLogger
+    celery_logger = getLogger("celery")
+    celery_logger.handlers.clear()
+    celery_logger.propagate = False
+    celery_logger.handlers = logger.handlers
+    celery_logger.setLevel(logger.level)

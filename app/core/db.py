@@ -1,5 +1,7 @@
 import os
+from typing import Iterator, cast, Dict, Any
 import psycopg
+from pydantic import ValidationError
 from app.core.models import Article
 
 conn_string = os.getenv("DATABASE_URL", "")
@@ -51,3 +53,28 @@ def save_article_to_db(article: Article):
         print(f"Error saving article to database: {e}")
     finally:
         close_db_connection(conn)
+
+def make_article_processed(article: Article):
+    conn = get_db_connection()
+    if not conn:
+        print("No database connection available.")
+        return
+    with conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE articles SET processed = true WHERE id = %s", (article.id,))
+        conn.commit()
+    
+def get_unprocessed_articles(batch_size: int = 50) -> Iterator[Article]:
+    conn = get_db_connection()
+    if not conn:
+        return
+    with conn:
+        with conn.cursor(name="unprocessed_articles_cursor") as cur:
+            cur.itersize = batch_size
+            cur.execute("SELECT id, title, link, summary, source_name, published_at, content FROM articles WHERE processed = false ORDER BY id")
+            for row in cur:
+                article_data = cast(Dict[str, Any], row)
+                try:
+                    yield Article(**article_data)
+                except ValidationError as ve:
+                    print(f"Data validation error for article ID {article_data.get('id')}: {ve}")

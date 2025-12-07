@@ -9,8 +9,7 @@ from pydantic import BaseModel
 from app.core.db import save_article_to_db
 from app.core.models import Article
 from requests.adapters import HTTPAdapter
-
-logger = logging.getLogger(__name__)
+from app.utils.logger import logger
 
 RSS_FEEDS = {
     "ET": "https://bfsi.economictimes.indiatimes.com/rss/lateststories"
